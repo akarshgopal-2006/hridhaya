@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/api_service.dart';
 
 class ChatMessage {
   final String text;
@@ -34,7 +35,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     super.dispose();
   }
 
-  void _sendMessage() {
+  void _sendMessage() async {
     final text = _inputController.text.trim();
     if (text.isEmpty || _sending) return;
 
@@ -45,50 +46,31 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     });
     _scrollToBottom();
 
-    final reply = _buildReply(text);
-    Future<void>.delayed(const Duration(milliseconds: 450), () {
+    try {
+      final response = await ApiService.sendMessage(text);
       if (!mounted) return;
       setState(() {
-        _messages.add(ChatMessage(text: reply, fromUser: false));
+        _messages.add(ChatMessage(
+          text: response['botMessage']['text'] ?? 'Sorry, I encountered an error.',
+          fromUser: false,
+        ));
         _sending = false;
       });
       _scrollToBottom();
-    });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _messages.add(ChatMessage(
+          text: 'Network error. Please try again.',
+          fromUser: false,
+        ));
+        _sending = false;
+      });
+      _scrollToBottom();
+    }
   }
 
-  String _buildReply(String raw) {
-    final text = raw.toLowerCase();
 
-    if (text.contains('chest') && text.contains('pain')) {
-      return 'If chest pain is heavy, lasts more than a few minutes, or spreads to arm, jaw or back,\npress SOS immediately and call emergency services. Do NOT wait to see if it passes.';
-    }
-    if (text.contains('thud') || text.contains('fall')) {
-      return 'A strong thud or fall plus dizziness, blackout or confusion is serious.\nIf you feel unwell after a fall, use Safety Loop or SOS and get checked by a doctor.';
-    }
-    if (text.contains('bp') ||
-        text.contains('blood pressure') ||
-        text.contains('pressure')) {
-      return 'Keeping blood pressure under control protects your heart.\nLimit salt, avoid smoking, move your body daily and take your BP medicines exactly as prescribed.';
-    }
-    if (text.contains('sleep')) {
-      return 'Most hearts like 7–9 hours of good sleep.\nVery little or very broken sleep can raise BP and trigger rhythm issues over time.';
-    }
-    if (text.contains('diet') || text.contains('food') || text.contains('eat')) {
-      return 'Aim for more colourful vegetables, fruits, whole grains, nuts and less deep‑fried or packaged food.\nSmall swaps every day lower long‑term cardiac risk.';
-    }
-    if (text.contains('exercise') ||
-        text.contains('walk') ||
-        text.contains('running')) {
-      return 'For many people, 150 minutes per week of moderate activity (like brisk walking) is a good target.\nAlways start slowly and speak to a doctor if you already have heart disease.';
-    }
-    if (text.contains('stress') ||
-        text.contains('anxious') ||
-        text.contains('anxiety')) {
-      return 'Stress itself can raise heart rate and BP.\nSlow breathing, short walks, talking to someone you trust and regular sleep all help your heart handle stress better.';
-    }
-
-    return 'I may not fully understand that question.\nFor anything urgent, especially chest pain, shortness of breath or fainting, press SOS and seek a doctor.\nFor lifestyle questions you can ask about diet, sleep, BP, exercise, stress or when to press SOS.';
-  }
 
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {

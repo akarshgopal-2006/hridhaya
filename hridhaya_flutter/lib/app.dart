@@ -74,7 +74,7 @@ class _HridhayaAppState extends State<HridhayaApp> {
             debugShowCheckedModeBanner: false,
             title: 'Hridhaya',
             theme: AppTheme.light(),
-            initialRoute: Routes.loading,
+            initialRoute: Routes.dashboard,
             onGenerateRoute: (settings) {
               switch (settings.name) {
                 case Routes.loading:

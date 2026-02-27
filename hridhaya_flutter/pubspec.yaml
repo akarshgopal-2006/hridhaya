@@ -1,4 +1,4 @@
-name: hridhaya
+name: hridhaya_flutter
 description: Hridhaya frontend prototype (Safety Loop, Stethoscope, Bystander, Dashboard, Settings).
 publish_to: "none"
 version: 0.1.0
@@ -11,8 +11,10 @@ dependencies:
     sdk: flutter
   cupertino_icons: any
   sensors_plus: any
-  shared_preferences: any
+  shared_preferences: ^2.5.4
   vibration: any
+  http: ^1.6.0
+  socket_io_client: ^3.1.4
 
 dev_dependencies:
   flutter_test:

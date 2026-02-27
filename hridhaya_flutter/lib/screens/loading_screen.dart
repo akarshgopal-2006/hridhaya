@@ -62,11 +62,15 @@ class _LoadingScreenState extends State<LoadingScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Spacer(flex: 2),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 32),
-                child: Image.asset(
-                  'assets/hridhaya_logo.png',
-                  fit: BoxFit.contain,
+              // constrain the logo so it doesn't overflow on tall/narrow screens
+              Flexible(
+                flex: 3,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  child: Image.asset(
+                    'packages/hridhaya_flutter/assets/hridhaya_logo.png',
+                    fit: BoxFit.contain,
+                  ),
                 ),
               ),
               const SizedBox(height: 24),
