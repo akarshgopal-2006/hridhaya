@@ -6,8 +6,8 @@ import 'app_controller.dart';
 import 'models/emergency_flow_args.dart';
 import 'routes.dart';
 import 'screens/bystander_command_center_screen.dart';
-import 'screens/dashboard_screen.dart';
 import 'screens/digital_stethoscope_screen.dart';
+import 'screens/home_shell.dart';
 import 'screens/loading_screen.dart';
 import 'screens/safety_loop_screen.dart';
 import 'screens/settings_privacy_screen.dart';
@@ -85,7 +85,7 @@ class _HridhayaAppState extends State<HridhayaApp> {
                 case Routes.dashboard:
                   return MaterialPageRoute(
                     settings: settings,
-                    builder: (_) => const DashboardScreen(),
+                    builder: (_) => const HomeShell(),
                   );
                 case Routes.safetyLoop:
                   return MaterialPageRoute(

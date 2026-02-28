@@ -97,11 +97,13 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                 padding: const EdgeInsets.fromLTRB(18, 16, 18, 8),
                 child: Row(
                   children: [
-                    IconButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
-                    ),
-                    const SizedBox(width: 8),
+                    if (Navigator.of(context).canPop())
+                      IconButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+                      ),
+                    if (Navigator.of(context).canPop())
+                      const SizedBox(width: 8),
                     Text(
                       'Hridhaya Chat',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(

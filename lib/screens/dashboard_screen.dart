@@ -6,9 +6,9 @@ import '../models/emergency_flow_args.dart';
 import '../routes.dart';
 import '../services/family_api_service.dart';
 import '../services/hospital_api_service.dart';
+import '../widgets/animated_heart_widget.dart';
 import '../widgets/connected_status_row.dart';
 import '../widgets/hold_to_sos_fab.dart';
-import '../widgets/risk_index_ring.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -174,7 +174,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             title: const Text('Hridhaya'),
             actions: [
               IconButton(
-                tooltip: 'Settings & Privacy',
                 onPressed: () => Navigator.of(context).pushNamed(Routes.settings),
                 icon: const Icon(Icons.settings_rounded),
               ),
@@ -200,19 +199,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(18, 10, 18, 24),
                 children: [
-                  const SizedBox(height: 6),
                   Center(
-                    child: RiskIndexRing(
-                      value: _risk,
+                    child: AnimatedHeartWidget(
+                      riskValue: _risk,
                       label: 'Cardiac Risk Index',
-                      pulsing: false,
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Center(
-                    child: _RiskStatusBadge(risk: _risk),
-                  ),
-                  const SizedBox(height: 18),
                   Center(
                     child: ConnectedStatusRow(
                       familySynced: settings.familySynced,
@@ -435,57 +427,7 @@ class _PrimaryCard extends StatelessWidget {
   }
 }
 
-class _RiskStatusBadge extends StatelessWidget {
-  final double risk;
 
-  const _RiskStatusBadge({required this.risk});
-
-  @override
-  Widget build(BuildContext context) {
-    final String statusText;
-    final Color statusColor;
-    final IconData statusIcon;
-
-    if (risk < 35) {
-      statusText = 'Low Risk';
-      statusColor = const Color(0xFF2E7D32);
-      statusIcon = Icons.check_circle_rounded;
-    } else if (risk < 65) {
-      statusText = 'Moderate Risk';
-      statusColor = const Color(0xFFE65100);
-      statusIcon = Icons.warning_rounded;
-    } else {
-      statusText = 'High Risk';
-      statusColor = const Color(0xFFC62828);
-      statusIcon = Icons.error_rounded;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: statusColor.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: statusColor.withValues(alpha: 0.30),
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(statusIcon, size: 18, color: statusColor),
-          const SizedBox(width: 6),
-          Text(
-            statusText,
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: statusColor,
-                  fontWeight: FontWeight.w800,
-                ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class _FamilyMemberTile extends StatelessWidget {
   final FamilyMember member;

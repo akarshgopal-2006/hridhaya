@@ -581,8 +581,10 @@ app.post('/api/chatbot/message', async (req, res) => {
 });
 
 // ─── Start ───────────────────────────────────────────────────
-app.listen(PORT, () => {
-    console.log(`\n🫀  Hridhaya Backend running on http://localhost:${PORT}`);
+// Listen on 0.0.0.0 so mobile devices on the same network can connect.
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`\n🫀  Hridhaya Backend running on http://0.0.0.0:${PORT}`);
+    console.log(`   (accessible from phone via your LAN IP)`);
     console.log(`   GET  /api/health`);
     console.log(`   POST /api/stethoscope/analyze`);
     console.log(`   POST /api/fall-detection/report`);

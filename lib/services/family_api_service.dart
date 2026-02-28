@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
+import 'api_config.dart';
+
 class FamilyApiService {
-  static const String baseUrl = 'http://127.0.0.1:5000/api';
+  static String get baseUrl => ApiConfig.baseUrl;
 
   /// Fetch family members from the backend.
   static Future<List<FamilyMember>> fetchMembers() async {

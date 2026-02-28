@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
+import 'api_config.dart';
+
 class ChatbotApiService {
-  static const String baseUrl = 'http://127.0.0.1:5000/api';
+  static String get baseUrl => ApiConfig.baseUrl;
 
   /// Send a message to the chatbot and get an AI-powered reply.
   /// Falls back to offline demo if the backend is unavailable.

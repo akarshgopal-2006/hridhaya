@@ -1,9 +1,10 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
+import 'api_config.dart';
+
 class StethoscopeApiService {
-  // Use 10.0.2.2 for Android emulator, or 127.0.0.1 for web/desktop
-  static const String baseUrl = 'http://127.0.0.1:5000/api';
+  static String get baseUrl => ApiConfig.baseUrl;
 
   /// Send captured gyroscope samples to the backend for analysis.
   ///
