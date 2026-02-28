@@ -59,15 +59,23 @@ class _RiskIndexRingState extends State<RiskIndexRing>
     final scheme = Theme.of(context).colorScheme;
     final baseColor = Color.lerp(scheme.primary, scheme.error, clamped / 100)!;
 
+    // Responsive sizing based on screen width
+    final screenWidth = MediaQuery.of(context).size.width;
+    final ringSize = (screenWidth * 0.52).clamp(140.0, 260.0);
+    final strokeWidth = (ringSize / 13).clamp(10.0, 20.0);
+    final displayFontSize = (ringSize / 5.5).clamp(22.0, 44.0);
+    final labelFontSize = (ringSize / 16).clamp(11.0, 16.0);
+
     final ring = CustomPaint(
       painter: _RingPainter(
         progress: clamped / 100,
         color: baseColor,
         trackColor: scheme.surfaceContainerHighest,
+        strokeWidth: strokeWidth,
       ),
       child: SizedBox(
-        width: 240,
-        height: 240,
+        width: ringSize,
+        height: ringSize,
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -77,6 +85,7 @@ class _RiskIndexRingState extends State<RiskIndexRing>
                 style: Theme.of(context).textTheme.displaySmall?.copyWith(
                       fontWeight: FontWeight.w800,
                       letterSpacing: -1.5,
+                      fontSize: displayFontSize,
                     ),
               ),
               const SizedBox(height: 6),
@@ -86,6 +95,7 @@ class _RiskIndexRingState extends State<RiskIndexRing>
                 style: Theme.of(context).textTheme.labelLarge?.copyWith(
                       color: scheme.onSurfaceVariant,
                       fontWeight: FontWeight.w600,
+                      fontSize: labelFontSize,
                     ),
               ),
             ],
@@ -103,11 +113,13 @@ class _RingPainter extends CustomPainter {
   final double progress;
   final Color color;
   final Color trackColor;
+  final double strokeWidth;
 
   _RingPainter({
     required this.progress,
     required this.color,
     required this.trackColor,
+    this.strokeWidth = 18,
   });
 
   @override
@@ -116,7 +128,7 @@ class _RingPainter extends CustomPainter {
     final radius = math.min(size.width, size.height) / 2 - 14;
     final stroke = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 18
+      ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round;
 
     stroke.color = trackColor;
@@ -133,7 +145,7 @@ class _RingPainter extends CustomPainter {
   bool shouldRepaint(covariant _RingPainter oldDelegate) {
     return oldDelegate.progress != progress ||
         oldDelegate.color != color ||
-        oldDelegate.trackColor != trackColor;
+        oldDelegate.trackColor != trackColor ||
+        oldDelegate.strokeWidth != strokeWidth;
   }
 }
-

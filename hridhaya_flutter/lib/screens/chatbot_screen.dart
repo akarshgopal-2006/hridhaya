@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
-import '../services/api_service.dart';
+
+import '../services/chatbot_api_service.dart';
 
 class ChatMessage {
   final String text;
   final bool fromUser;
+  final bool fromApi; // true = GPT response, false = offline/demo
 
-  const ChatMessage({required this.text, required this.fromUser});
+  const ChatMessage({required this.text, required this.fromUser, this.fromApi = false});
 }
 
 class ChatbotScreen extends StatefulWidget {
@@ -16,8 +18,9 @@ class ChatbotScreen extends StatefulWidget {
 }
 
 class _ChatbotScreenState extends State<ChatbotScreen> {
-  final List<ChatMessage> _messages = const [
-    ChatMessage(
+  // Fixed: removed `const` — a const list cannot be mutated at runtime.
+  final List<ChatMessage> _messages = [
+    const ChatMessage(
       text:
           'Hi, I am Hridhaya Assistant.\nYou can ask about symptoms, lifestyle and when to press SOS.\n(This is a demo and not a substitute for a doctor.)',
       fromUser: false,
@@ -27,6 +30,8 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   final TextEditingController _inputController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   bool _sending = false;
+
+  /// Offline demo responses removed — now powered by OpenAI via backend.
 
   @override
   void dispose() {
@@ -46,31 +51,21 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     });
     _scrollToBottom();
 
-    try {
-      final response = await ApiService.sendMessage(text);
-      if (!mounted) return;
-      setState(() {
-        _messages.add(ChatMessage(
-          text: response['botMessage']['text'] ?? 'Sorry, I encountered an error.',
-          fromUser: false,
-        ));
-        _sending = false;
-      });
-      _scrollToBottom();
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _messages.add(ChatMessage(
-          text: 'Network error. Please try again.',
-          fromUser: false,
-        ));
-        _sending = false;
-      });
-      _scrollToBottom();
-    }
+    // Call the backend API (which calls OpenAI GPT)
+    final response = await ChatbotApiService.sendMessage(message: text);
+
+    if (!mounted) return;
+
+    setState(() {
+      _messages.add(ChatMessage(
+        text: response.reply,
+        fromUser: false,
+        fromApi: response.fromApi,
+      ));
+      _sending = false;
+    });
+    _scrollToBottom();
   }
-
-
 
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -150,12 +145,23 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                   controller: _scrollController,
                   padding:
                       const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-                  itemCount: _messages.length,
+                  itemCount: _messages.length + (_sending ? 1 : 0),
                   itemBuilder: (context, index) {
+                    // Show typing indicator as last item
+                    if (index == _messages.length && _sending) {
+                      return const Padding(
+                        padding: EdgeInsets.only(bottom: 10),
+                        child: _TypingIndicator(),
+                      );
+                    }
                     final m = _messages[index];
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 10),
-                      child: _Bubble(text: m.text, fromUser: m.fromUser),
+                      child: _Bubble(
+                        text: m.text,
+                        fromUser: m.fromUser,
+                        fromApi: m.fromApi,
+                      ),
                     );
                   },
                 ),
@@ -209,8 +215,9 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
 class _Bubble extends StatelessWidget {
   final String text;
   final bool fromUser;
+  final bool fromApi;
 
-  const _Bubble({required this.text, required this.fromUser});
+  const _Bubble({required this.text, required this.fromUser, this.fromApi = false});
 
   @override
   Widget build(BuildContext context) {
@@ -229,11 +236,77 @@ class _Bubble extends StatelessWidget {
 
     return Align(
       alignment: fromUser ? Alignment.centerRight : Alignment.centerLeft,
+      child: Column(
+        crossAxisAlignment:
+            fromUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        children: [
+          Container(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.78,
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: radius,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.10),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Text(
+              text,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: fg),
+            ),
+          ),
+          // AI / Offline badge for bot messages
+          if (!fromUser) ...[
+            const SizedBox(height: 4),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: fromApi
+                    ? const Color(0xFF1565C0).withValues(alpha: 0.12)
+                    : Colors.grey.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                fromApi ? '✨ GPT-4o' : '📴 Offline',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                      color: fromApi
+                          ? const Color(0xFF1565C0)
+                          : Colors.grey[600],
+                    ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _TypingIndicator extends StatelessWidget {
+  const _TypingIndicator();
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
         decoration: BoxDecoration(
-          color: bg,
-          borderRadius: radius,
+          color: Colors.white.withValues(alpha: 0.96),
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(18),
+            topRight: Radius.circular(18),
+            bottomLeft: Radius.circular(4),
+            bottomRight: Radius.circular(18),
+          ),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.10),
@@ -242,13 +315,72 @@ class _Bubble extends StatelessWidget {
             ),
           ],
         ),
-        child: Text(
-          text,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: fg),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _Dot(delay: 0),
+            const SizedBox(width: 4),
+            _Dot(delay: 200),
+            const SizedBox(width: 4),
+            _Dot(delay: 400),
+            const SizedBox(width: 8),
+            Text(
+              'Thinking…',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.grey[500],
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
+class _Dot extends StatefulWidget {
+  final int delay;
+  const _Dot({required this.delay});
 
+  @override
+  State<_Dot> createState() => _DotState();
+}
+
+class _DotState extends State<_Dot> with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 600),
+  );
+  late final Animation<double> _anim = Tween(begin: 0.3, end: 1.0).animate(
+    CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(Duration(milliseconds: widget.delay), () {
+      if (mounted) _ctrl.repeat(reverse: true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _anim,
+      child: Container(
+        width: 8,
+        height: 8,
+        decoration: BoxDecoration(
+          color: const Color(0xFF1565C0),
+          shape: BoxShape.circle,
+        ),
+      ),
+    );
+  }
+}

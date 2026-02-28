@@ -1,8 +1,15 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const OpenAI = require('openai');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// ─── OpenAI Client ───────────────────────────────────────────
+const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+});
 
 // ─── Middleware ───────────────────────────────────────────────
 app.use(cors());
@@ -299,6 +306,72 @@ function round4(n) {
     return Math.round(n * 10000) / 10000;
 }
 
+// ─── Family Members ──────────────────────────────────────────
+
+const familyMembers = [
+    {
+        id: 'fam_001',
+        name: 'Priya Sharma',
+        relation: 'Mother',
+        phone: '+91 98765 43210',
+        location: { lat: 13.0580, lng: 80.2500, label: 'Home – Anna Nagar' },
+        status: 'online',
+        lastSeen: new Date().toISOString(),
+        avatarColor: '#E91E63',
+        emergencyContact: true,
+    },
+    {
+        id: 'fam_002',
+        name: 'Rajesh Sharma',
+        relation: 'Father',
+        phone: '+91 98765 43211',
+        location: { lat: 13.0620, lng: 80.2480, label: 'Office – T. Nagar' },
+        status: 'online',
+        lastSeen: new Date().toISOString(),
+        avatarColor: '#1565C0',
+        emergencyContact: true,
+    },
+    {
+        id: 'fam_003',
+        name: 'Ananya Sharma',
+        relation: 'Sister',
+        phone: '+91 98765 43212',
+        location: { lat: 13.0100, lng: 80.2350, label: 'College – Guindy' },
+        status: 'away',
+        lastSeen: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
+        avatarColor: '#7B1FA2',
+        emergencyContact: false,
+    },
+    {
+        id: 'fam_004',
+        name: 'Dr. Kumar (Uncle)',
+        relation: 'Uncle',
+        phone: '+91 98765 43213',
+        location: { lat: 13.0340, lng: 80.2700, label: 'Kauvery Hospital' },
+        status: 'online',
+        lastSeen: new Date().toISOString(),
+        avatarColor: '#00695C',
+        emergencyContact: true,
+    },
+];
+
+app.get('/api/family/members', (_req, res) => {
+    // Randomize last-seen times slightly for realism
+    const members = familyMembers.map(m => ({
+        ...m,
+        lastSeen: m.status === 'online' ? new Date().toISOString() : m.lastSeen,
+    }));
+
+    console.log(`[Family] Returning ${members.length} family members`);
+
+    res.json({
+        success: true,
+        count: members.length,
+        members,
+        timestamp: new Date().toISOString(),
+    });
+});
+
 // ─── Nearby Hospitals ────────────────────────────────────────
 
 const hospitals = [
@@ -434,6 +507,79 @@ app.get('/api/hospitals/:id', (req, res) => {
     res.json({ success: true, hospital });
 });
 
+// ─── Chatbot (OpenAI GPT) ────────────────────────────────────
+
+const SYSTEM_PROMPT = `You are Hridhaya Assistant, a compassionate and knowledgeable cardiac health AI chatbot built into the Hridhaya app. Your role:
+
+1. Answer questions about heart health, cardiac symptoms, lifestyle, diet, exercise and medication awareness.
+2. Help users understand when to press the SOS button (sudden severe chest pain, difficulty breathing, loss of consciousness, sudden numbness).
+3. Provide first-aid guidance for cardiac emergencies while waiting for help.
+4. Be empathetic, clear and concise. Use simple language.
+5. ALWAYS include a disclaimer that you are NOT a substitute for a real doctor.
+6. If someone describes an active emergency, urgently tell them to press the SOS button in the app or call 108 (India) / local emergency number.
+7. Keep responses under 200 words unless the user asks for detail.
+8. You can discuss: chest pain, blood pressure, cholesterol, arrhythmia, heart attack signs, CPR basics, diet, exercise, stress, sleep, smoking, medications (general awareness only).
+9. Never prescribe specific medications or dosages.
+10. Be warm and supportive — many users may be anxious about their heart health.`;
+
+// In-memory conversation history per session (simple demo)
+const chatSessions = new Map();
+
+app.post('/api/chatbot/message', async (req, res) => {
+    const { message, sessionId = 'default' } = req.body;
+
+    if (!message || typeof message !== 'string' || message.trim().length === 0) {
+        return res.status(400).json({ error: 'Missing "message" in request body.' });
+    }
+
+    // Get or create session history
+    if (!chatSessions.has(sessionId)) {
+        chatSessions.set(sessionId, []);
+    }
+    const history = chatSessions.get(sessionId);
+
+    // Add user message to history
+    history.push({ role: 'user', content: message.trim() });
+
+    // Keep only last 20 messages to avoid token overflow
+    if (history.length > 20) {
+        history.splice(0, history.length - 20);
+    }
+
+    try {
+        const completion = await openai.chat.completions.create({
+            model: 'gpt-4o-mini',
+            messages: [
+                { role: 'system', content: SYSTEM_PROMPT },
+                ...history,
+            ],
+            max_tokens: 500,
+            temperature: 0.7,
+        });
+
+        const reply = completion.choices[0]?.message?.content || 'I apologize, I could not generate a response. Please try again.';
+
+        // Add assistant reply to history
+        history.push({ role: 'assistant', content: reply });
+
+        console.log(`[Chatbot] Session=${sessionId} | User: "${message.trim().substring(0, 50)}..." | Reply: ${reply.substring(0, 60)}...`);
+
+        res.json({
+            success: true,
+            reply,
+            sessionId,
+            timestamp: new Date().toISOString(),
+        });
+    } catch (error) {
+        console.error('[Chatbot] OpenAI API error:', error.message);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to get AI response. Please try again.',
+            detail: error.message,
+        });
+    }
+});
+
 // ─── Start ───────────────────────────────────────────────────
 app.listen(PORT, () => {
     console.log(`\n🫀  Hridhaya Backend running on http://localhost:${PORT}`);
@@ -441,6 +587,9 @@ app.listen(PORT, () => {
     console.log(`   POST /api/stethoscope/analyze`);
     console.log(`   POST /api/fall-detection/report`);
     console.log(`   GET  /api/fall-detection/incidents`);
+    console.log(`   GET  /api/family/members`);
     console.log(`   GET  /api/hospitals/nearby`);
-    console.log(`   GET  /api/hospitals/:id\n`);
+    console.log(`   GET  /api/hospitals/:id`);
+    console.log(`   POST /api/chatbot/message`);
+    console.log(`   OpenAI: ${process.env.OPENAI_API_KEY ? '✅ Key loaded' : '❌ No key found'}\n`);
 });

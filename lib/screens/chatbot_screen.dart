@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../services/chatbot_api_service.dart';
+
 class ChatMessage {
   final String text;
   final bool fromUser;
+  final bool fromApi; // true = GPT response, false = offline/demo
 
-  const ChatMessage({required this.text, required this.fromUser});
+  const ChatMessage({required this.text, required this.fromUser, this.fromApi = false});
 }
 
 class ChatbotScreen extends StatefulWidget {
@@ -28,25 +31,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   final ScrollController _scrollController = ScrollController();
   bool _sending = false;
 
-  /// Offline demo responses keyed by simple keyword matching.
-  static const _demoResponses = <String, String>{
-    'chest pain':
-        'Chest pain can have many causes. If the pain is sharp, spreading to your arm or jaw, and you feel nauseous or short of breath, press the SOS button immediately. For mild discomfort, rest and monitor — but always consult a doctor.',
-    'exercise':
-        'Regular moderate exercise (150 min/week) strengthens your heart. Start slow and avoid pushing through chest pain. Walking, swimming and cycling are great cardiac-friendly choices.',
-    'diet':
-        'A heart-healthy diet includes fruits, vegetables, whole grains, lean proteins and healthy fats. Reduce sodium, sugar and processed foods. The Mediterranean diet is particularly beneficial.',
-    'blood pressure':
-        'Normal blood pressure is around 120/80 mmHg. High blood pressure (hypertension) often has no symptoms but damages arteries over time. Monitor regularly and consult your doctor about medication if needed.',
-    'sos':
-        'Press the SOS button if you experience sudden severe chest pain, difficulty breathing, sudden numbness or weakness, or if you witness someone collapse. The Safety Loop gives a 30-second countdown to confirm.',
-    'stress':
-        'Chronic stress raises cortisol levels, which can increase heart rate and blood pressure. Practice deep breathing, meditation, or yoga. Even 10 minutes of calm daily can help your heart.',
-    'sleep':
-        'Poor sleep (less than 6 hours) increases the risk of heart disease. Aim for 7–9 hours of quality sleep. Avoid caffeine late in the day and maintain a regular sleep schedule.',
-    'smoking':
-        'Smoking is a major risk factor for heart disease. It damages blood vessels, raises blood pressure your arteriosclerosis. Quitting — even after years — rapidly improves heart health.',
-  };
+  /// Offline demo responses removed — now powered by OpenAI via backend.
 
   @override
   void dispose() {
@@ -66,23 +51,17 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     });
     _scrollToBottom();
 
-    // Simulate a short "thinking" delay.
-    await Future<void>.delayed(const Duration(milliseconds: 600));
+    // Call the backend API (which calls OpenAI GPT)
+    final response = await ChatbotApiService.sendMessage(message: text);
 
     if (!mounted) return;
 
-    // Find a matching demo response or fall back to a generic one.
-    final lower = text.toLowerCase();
-    String reply = 'I\'m an offline demo bot. I can answer about: chest pain, exercise, diet, blood pressure, SOS, stress, sleep, and smoking. Try asking about one of these topics!';
-    for (final entry in _demoResponses.entries) {
-      if (lower.contains(entry.key)) {
-        reply = entry.value;
-        break;
-      }
-    }
-
     setState(() {
-      _messages.add(ChatMessage(text: reply, fromUser: false));
+      _messages.add(ChatMessage(
+        text: response.reply,
+        fromUser: false,
+        fromApi: response.fromApi,
+      ));
       _sending = false;
     });
     _scrollToBottom();
@@ -166,12 +145,23 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                   controller: _scrollController,
                   padding:
                       const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-                  itemCount: _messages.length,
+                  itemCount: _messages.length + (_sending ? 1 : 0),
                   itemBuilder: (context, index) {
+                    // Show typing indicator as last item
+                    if (index == _messages.length && _sending) {
+                      return const Padding(
+                        padding: EdgeInsets.only(bottom: 10),
+                        child: _TypingIndicator(),
+                      );
+                    }
                     final m = _messages[index];
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 10),
-                      child: _Bubble(text: m.text, fromUser: m.fromUser),
+                      child: _Bubble(
+                        text: m.text,
+                        fromUser: m.fromUser,
+                        fromApi: m.fromApi,
+                      ),
                     );
                   },
                 ),
@@ -225,8 +215,9 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
 class _Bubble extends StatelessWidget {
   final String text;
   final bool fromUser;
+  final bool fromApi;
 
-  const _Bubble({required this.text, required this.fromUser});
+  const _Bubble({required this.text, required this.fromUser, this.fromApi = false});
 
   @override
   Widget build(BuildContext context) {
@@ -245,11 +236,77 @@ class _Bubble extends StatelessWidget {
 
     return Align(
       alignment: fromUser ? Alignment.centerRight : Alignment.centerLeft,
+      child: Column(
+        crossAxisAlignment:
+            fromUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        children: [
+          Container(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.78,
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: radius,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.10),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Text(
+              text,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: fg),
+            ),
+          ),
+          // AI / Offline badge for bot messages
+          if (!fromUser) ...[
+            const SizedBox(height: 4),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: fromApi
+                    ? const Color(0xFF1565C0).withValues(alpha: 0.12)
+                    : Colors.grey.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                fromApi ? '✨ GPT-4o' : '📴 Offline',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                      color: fromApi
+                          ? const Color(0xFF1565C0)
+                          : Colors.grey[600],
+                    ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _TypingIndicator extends StatelessWidget {
+  const _TypingIndicator();
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
         decoration: BoxDecoration(
-          color: bg,
-          borderRadius: radius,
+          color: Colors.white.withValues(alpha: 0.96),
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(18),
+            topRight: Radius.circular(18),
+            bottomLeft: Radius.circular(4),
+            bottomRight: Radius.circular(18),
+          ),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.10),
@@ -258,9 +315,70 @@ class _Bubble extends StatelessWidget {
             ),
           ],
         ),
-        child: Text(
-          text,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: fg),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _Dot(delay: 0),
+            const SizedBox(width: 4),
+            _Dot(delay: 200),
+            const SizedBox(width: 4),
+            _Dot(delay: 400),
+            const SizedBox(width: 8),
+            Text(
+              'Thinking…',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.grey[500],
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Dot extends StatefulWidget {
+  final int delay;
+  const _Dot({required this.delay});
+
+  @override
+  State<_Dot> createState() => _DotState();
+}
+
+class _DotState extends State<_Dot> with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 600),
+  );
+  late final Animation<double> _anim = Tween(begin: 0.3, end: 1.0).animate(
+    CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(Duration(milliseconds: widget.delay), () {
+      if (mounted) _ctrl.repeat(reverse: true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _anim,
+      child: Container(
+        width: 8,
+        height: 8,
+        decoration: BoxDecoration(
+          color: const Color(0xFF1565C0),
+          shape: BoxShape.circle,
         ),
       ),
     );
